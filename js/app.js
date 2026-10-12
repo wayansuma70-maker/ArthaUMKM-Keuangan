@@ -190,6 +190,7 @@ function renderBeranda() {
     '<div class="greet"><div><h1>Selamat Datang, ' + esc(S.user.nama) + '</h1><p>' + ic('storefront', 'sm') + ' ' + esc(d.toko) + '</p></div>' +
     '<button class="icon-btn" data-act="bell" aria-label="Notifikasi">' + ic('notifications') + (low.length ? '<span class="dot-badge"></span>' : '') + '</button></div>' +
 
+    '<div class="cols"><div class="col">' +
     '<div class="hero"><div class="hero-top"><span>Saldo Kas Bersih • ' + esc(d.bulan) + '</span><span class="pill">Aktif</span></div>' +
     '<div class="hero-amount">' + rp(d.saldo) + '</div><div class="hero-growth">' + growth + '</div>' +
     '<div class="hero-split"><div><small>' + ic('arrow_circle_down', 'sm') + ' Total Pemasukan</small><b>' + rp(d.masuk) + '</b></div>' +
@@ -205,6 +206,7 @@ function renderBeranda() {
       '<button class="btn btn-sm" style="background:#fff;color:var(--tertiary)" data-act="to-produk" data-filter="menipis">Lihat Stok</button></div>' +
       '<div class="row" style="margin-top:.7rem">' + low.slice(0, 2).map(p => '<div class="mini-prod">' + ic('shopping_bag', 'sm') + '<span>' + esc(p.nama) + '</span><span class="pill red">Sisa ' + p.stok + '</span></div>').join('') + '</div></div>' : '') +
 
+    '</div><div class="col">' +
     '<div class="card lift" style="margin-top:1rem"><div class="row between"><div><div class="card-title">Tren Pemasukan Mingguan</div><div class="card-sub">Senin s.d Minggu Ini</div></div>' +
     '<div style="text-align:right"><div class="card-sub">Rata-rata/hari</div><b class="up">' + rp(w.rataHarian) + '</b></div></div>' +
     '<div class="bars">' + w.values.map((v, i) => {
@@ -213,7 +215,7 @@ function renderBeranda() {
     }).join('') + '</div></div>' +
 
     '<div class="sec-head"><h2>Transaksi Terbaru</h2><button data-act="to-trx">Lihat Semua</button></div>' +
-    '<div class="card tx-list">' + (d.terbaru.length ? d.terbaru.map(t => txItem(t)).join('') : '<div class="empty">' + ic('receipt_long') + 'Belum ada transaksi.<br>Ketuk tombol + untuk mencatat.</div>') + '</div>';
+    '<div class="card tx-list">' + (d.terbaru.length ? d.terbaru.map(t => txItem(t)).join('') : '<div class="empty">' + ic('receipt_long') + 'Belum ada transaksi.<br>Ketuk tombol + untuk mencatat.</div>') + '</div></div></div>';
 }
 
 // ============================================
@@ -223,7 +225,7 @@ const F = { jenis: 'Pemasukan', kategori: 'Penjualan Produk', metode: 'Tunai', i
 
 function buildCatat() {
   $('#view-catat').innerHTML =
-    '<div class="stack" style="margin-top:.4rem">' +
+    '<div class="cols" style="margin-top:.4rem"><div class="col stack">' +
     '<div class="banner">' + ic('bolt', 'sm') + ' Mode Kasir Instan • Target entri &lt; 30 detik <span class="pill">Auto-Sync ON</span></div>' +
     '<div class="seg" id="c-seg"><button type="button" class="in on" data-jenis="Pemasukan">' + ic('arrow_downward', 'sm') + ' Pemasukan (+)</button>' +
     '<button type="button" class="out" data-jenis="Pengeluaran">' + ic('arrow_upward', 'sm') + ' Pengeluaran (-)</button></div>' +
@@ -238,6 +240,7 @@ function buildCatat() {
     '<div class="card"><b>Kategori Keuangan</b><div class="chips" id="c-kat" style="margin-top:.6rem"></div>' +
     '<div style="margin-top:.9rem"><b>Metode Pembayaran</b></div><div class="chips" id="c-metode" style="margin-top:.6rem"></div></div>' +
 
+    '</div><div class="col stack">' +
     '<div class="card" id="c-prod-card"><div class="row between"><b>' + ic('inventory_2', 'sm') + ' Kaitkan Produk (Potong Stok)</b><span class="muted small">Opsional</span></div>' +
     '<div class="input soft" style="margin-top:.6rem"><select id="c-prod"><option value="">Memuat produk...</option></select>' + ic('expand_more') + '</div>' +
     '<div class="sel-prod" id="c-prod-panel" hidden><div class="row"><div class="thumb" id="c-prod-img"></div><div class="grow"><b id="c-prod-name"></b><div class="muted small" id="c-prod-meta"></div></div></div>' +
@@ -260,7 +263,7 @@ function buildCatat() {
     '<label class="switch"><input type="checkbox" id="c-inv" checked><span></span></label></div></div>' +
 
     '<button class="btn btn-primary btn-block" id="c-submit" type="button">' + ic('bolt') + ' Simpan Transaksi (≤30 Detik)</button>' +
-    '<p class="fine">' + ic('lock', 'xs') + ' Tersimpan otomatis ke sheet Transaksi</p></div>';
+    '<p class="fine">' + ic('lock', 'xs') + ' Tersimpan otomatis ke sheet Transaksi</p></div></div>';
 
   const v = $('#view-catat');
   v.addEventListener('click', e => {
@@ -421,12 +424,15 @@ async function loadProduk(opts) {
 function renderProduk() {
   const r = S.prod.ringkas;
   $('#view-produk').innerHTML =
+    '<div class="cols"><div class="col">' +
     '<div class="card lift" style="margin-top:.4rem"><div class="row between"><b>' + ic('warehouse', 'sm') + ' Ringkasan Gudang</b><span class="pill green">● Auto-Sync</span></div>' +
     '<div class="price-box" style="margin-top:.7rem"><div><small>Total Produk</small><b>' + r.total + ' <span style="font-size:13px;font-weight:600">Item</span></b></div><div><small>Total Nilai Stok</small><b>' + rp(r.nilaiStok) + '</b></div></div>' +
     '<p class="muted small" style="margin-top:.6rem">' + ic('table_chart', 'xs') + ' Tersinkron ke Google Sheets "Produk"</p></div>' +
+    '</div><div class="col">' +
     '<button class="btn btn-primary btn-block" style="margin-top:.8rem" data-act="prod-new">' + ic('add_circle') + ' Tambah Produk Baru</button>' +
     '<div class="search" style="margin-top:.8rem">' + ic('search') + '<input id="prod-q" placeholder="Cari nama barang atau kategori..." value="' + esc(S.prodQ) + '"></div>' +
     '<div class="chips scroll" id="prod-chips" style="margin-top:.7rem"></div>' +
+    '</div></div>' +
     '<div id="prod-alert"></div><div class="stack" id="prod-list" style="margin-top:.8rem"></div>';
   renderProdChips(); renderProdList();
 }
@@ -556,6 +562,7 @@ function renderLaporan(r) {
     '<div class="row between"><h1 class="page-title" style="margin:0">Kinerja Finansial Usaha</h1></div></div>' +
     '<div class="chips scroll">' + chip('bulan_ini', ic('calendar_month', 'sm') + ' Bulan Ini (' + BLN[n.getMonth()] + ' ' + y + ')') + chip('bulan_lalu', 'Bulan Lalu') + chip('tahun_ini', 'Tahun ' + y) + '</div>' +
 
+    '<div class="cols"><div class="col">' +
     '<div class="card lift" style="margin-top:.9rem"><div class="row between"><span class="muted">Laba Bersih Operasional</span>' +
     (r.growth != null ? '<span class="pill ' + (r.growth >= 0 ? 'mint' : 'red') + '">' + ic(r.growth >= 0 ? 'trending_up' : 'trending_down', 'xs') + ' ' + (r.growth >= 0 ? '+' : '') + String(r.growth).replace('.', ',') + '%</span>' : '') + '</div>' +
     '<div style="font-size:32px;font-weight:800;letter-spacing:-.02em;color:' + (r.laba >= 0 ? 'var(--primary)' : 'var(--tertiary)') + '">' + rp(r.laba) + '</div>' +
@@ -570,6 +577,7 @@ function renderLaporan(r) {
     '<div class="glabels">' + r.tren.map((t, i) => '<span' + (i === last ? ' style="color:var(--primary);font-weight:800"' : '') + '>' + t.label + (i === last ? ' ★' : '') + '</span>').join('') + '</div>' +
     '<div class="insight">' + ic('auto_awesome', 'sm') + '<span>' + esc(r.insight) + '</span></div></div>' +
 
+    '</div><div class="col">' +
     '<div class="card" style="margin-top:.9rem"><div class="row between"><div><div class="card-title">3 Produk Terlaris</div><div class="card-sub">Kontribusi terbesar omzet ' + esc(r.label) + '</div></div></div><div class="stack" style="margin-top:.7rem">' +
     (r.top.length ? r.top.map((t, i) => '<div class="rank"><div class="thumb">' + thumb(t.foto) + '<span class="no">' + (i + 1) + '</span></div><div class="grow"><b>' + esc(t.nama) + '</b><div class="muted small">' + t.terjual + ' terjual</div></div><div style="text-align:right"><b>' + rp(t.omzet) + '</b><div class="small up" style="font-weight:700">' + String(t.porsi).replace('.', ',') + '% Omzet</div></div></div>').join('') : '<div class="empty" style="padding:1rem">Belum ada penjualan produk pada periode ini.</div>') + '</div></div>' +
 
@@ -582,7 +590,7 @@ function renderLaporan(r) {
     (r.invoices.length ? r.invoices.map(v => '<div class="inv"><div class="row between"><b>' + esc(v.no) + '</b><b>' + rp(v.nominal) + '</b></div><div class="row between small muted" style="margin-top:.2rem"><span>Pelanggan: <b style="color:var(--ink)">' + esc(v.pelanggan) + '</b></span><span>' + esc(fmtDate(v.tanggal)) + '</span></div>' +
       '<div class="row between" style="margin-top:.5rem"><span class="small up" style="font-weight:600">' + ic('check_circle', 'xs') + ' Tersimpan di Drive</span><span class="row"><a class="mini-btn" href="' + esc(v.link) + '" target="_blank" rel="noopener">' + ic('visibility', 'xs') + ' Lihat</a><button class="mini-btn" style="background:var(--primary);color:#fff" data-act="share-inv" data-no="' + esc(v.no) + '" data-link="' + esc(v.link) + '">' + ic('share', 'xs') + ' Kirim</button></span></div></div>').join('')
       : '<div class="empty" style="padding:1rem">Belum ada invoice.</div>') + '</div>' +
-    '<div class="row" style="margin-top:.8rem"><button class="btn btn-mint grow" data-act="new-invoice">' + ic('add_circle', 'sm') + ' Buat Invoice Baru</button><button class="btn btn-soft grow" data-act="drive">' + ic('folder_open', 'sm') + ' Folder Drive</button></div></div>';
+    '<div class="row" style="margin-top:.8rem"><button class="btn btn-mint grow" data-act="new-invoice">' + ic('add_circle', 'sm') + ' Buat Invoice Baru</button><button class="btn btn-soft grow" data-act="drive">' + ic('folder_open', 'sm') + ' Folder Drive</button></div></div></div></div>';
 }
 
 async function exportPdf() {

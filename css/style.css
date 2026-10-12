@@ -317,3 +317,87 @@ body.staff .view { padding-bottom: 2rem; }
 .cat-wrap { padding: 0 1rem 2rem; }
 
 @media (min-width: 640px) { body { padding: 1rem 0; } #app { border-radius: 24px; overflow: hidden; min-height: calc(100vh - 2rem); } .bottom-nav { bottom: 1rem; border-radius: 0 0 24px 24px; } }
+
+/* ============================================================
+   RESPONSIF — kolom, tablet, dan laptop/PC
+   ============================================================ */
+.cols > .col + .col { margin-top: .75rem; }
+.bottom-nav .side-brand, .bottom-nav .desk-only { display: none; }
+
+@media (min-width: 640px) {
+  #app.wide { max-width: 1200px; }
+  .wide .cat-head { padding: 2rem 1.5rem .8rem; }
+  .wide .cat-wrap { padding: 0 1.5rem 3rem; }
+  .wide .grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 1rem; }
+}
+
+@media (min-width: 1024px) {
+  body { padding: 0; background: var(--bg); }
+  #app { max-width: none; border-radius: 0; box-shadow: none; overflow: visible; min-height: 100vh; }
+  #app.wide { max-width: 1200px; }
+  .login-wrap { max-width: 440px; margin: 0 auto; padding-top: 9vh; }
+
+  /* --- Kerangka: sidebar kiri + konten --- */
+  #shell { display: grid; grid-template-columns: 256px minmax(0, 1fr); grid-template-rows: auto 1fr; min-height: 100vh; }
+  .topbar { grid-column: 2; grid-row: 1; padding: 1.3rem 2rem .7rem; }
+  .topbar .logo, .topbar-title b { display: none; }
+  .topbar-title small { font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+  #views { grid-column: 2; grid-row: 2; width: 100%; max-width: 1240px; padding: 0 2rem 3rem; }
+  .view { padding: 0 0 2rem; }
+
+  /* --- Menu bawah berubah jadi sidebar --- */
+  .bottom-nav {
+    grid-column: 1; grid-row: 1 / span 2; align-self: start;
+    position: sticky; top: 0; bottom: auto; left: auto; transform: none;
+    width: auto; max-width: none; height: 100vh; box-sizing: border-box;
+    padding: 1.4rem .9rem; display: flex; flex-direction: column; gap: .3rem;
+    border-top: 0; border-right: 1px solid var(--border); border-radius: 0; box-shadow: none;
+  }
+  .bottom-nav .side-brand { display: flex; align-items: center; gap: .7rem; padding: .2rem .6rem 1.2rem; order: -2; }
+  .side-brand b { display: block; font-size: 20px; line-height: 22px; font-weight: 800; letter-spacing: -.02em; }
+  .side-brand small { color: var(--slate-500); font-size: 12px; font-weight: 600; }
+  .bottom-nav .desk-only { display: flex; }
+  .bottom-nav button { flex-direction: row; justify-content: flex-start; gap: .8rem; padding: .75rem .9rem; border-radius: .8rem; }
+  .bottom-nav button small { font-size: 14px; }
+  .bottom-nav button:hover { background: var(--surface-low); }
+  .bottom-nav button.on { background: var(--accent-tint); }
+  .bottom-nav .ms { font-size: 24px; }
+  .bottom-nav .nav-spacer, .bottom-nav .nav-spacer.on, .bottom-nav .nav-spacer:hover {
+    order: -1; justify-content: flex-start; padding: .85rem .9rem; margin-bottom: .8rem;
+    background: var(--primary); color: #fff !important;
+  }
+  .bottom-nav .nav-spacer:hover { background: var(--primary-hover); }
+  .nav-spacer .fab { position: static; width: auto; height: auto; background: none; box-shadow: none; border: 0; display: inline-grid; }
+  .nav-spacer .fab .ms { font-size: 24px; }
+
+  /* Karyawan: tanpa sidebar, form di tengah */
+  body.staff #shell { grid-template-columns: minmax(0, 1fr); }
+  body.staff .topbar { grid-column: 1; max-width: 900px; width: 100%; margin: 0 auto; }
+  body.staff #views { grid-column: 1; max-width: 900px; margin: 0 auto; }
+  body.staff .topbar .logo { display: grid; }
+  body.staff .topbar-title b { display: block; }
+  body.staff .topbar-title small { font-size: 13px; line-height: 16px; font-weight: 600; color: var(--slate-700); }
+
+  /* --- Tata letak 2 kolom --- */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+  .cols > .col { min-width: 0; }
+  .cols > .col + .col { margin-top: 0; }
+  .cols > .col > :first-child { margin-top: 0 !important; }
+  #prod-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+  #prod-list > * { margin-top: 0 !important; }
+  #view-transaksi { max-width: 900px; }
+  .chips.scroll { margin: 0; padding: 0; flex-wrap: wrap; overflow: visible; }
+  .hero-amount { font-size: 40px; line-height: 48px; }
+  .bars, .gbars { height: 200px; }
+
+  /* --- Popup di tengah layar --- */
+  .backdrop { align-items: center; }
+  .sheet { border-radius: 20px; max-width: 540px; padding-bottom: 1.2rem; animation: pop .2s; }
+  .sheet .grab { display: none; }
+  @keyframes pop { from { transform: scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+
+@media (min-width: 1600px) {
+  #shell { grid-template-columns: 280px minmax(0, 1fr); }
+  #views { max-width: 1360px; }
+}
