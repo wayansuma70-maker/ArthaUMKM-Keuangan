@@ -35,7 +35,14 @@
   <div id="shell" hidden>
     <header class="topbar">
       <div class="logo"><span class="ms">account_balance_wallet</span></div>
-      <div class="topbar-title"><b>ArthaUMKM</b><small id="topbar-sub">Beranda</small></div>
+      <div class="store-ico"><span class="ms">storefront</span></div>
+      <div class="topbar-title">
+        <b class="t-app">ArthaUMKM</b><b class="t-store" id="topbar-store">ArthaUMKM</b>
+        <small class="t-view" id="topbar-sub">Beranda</small><small class="t-owner" id="topbar-owner"></small>
+      </div>
+      <span class="live-pill"><i></i> Live Sync Aktif</span>
+      <button class="icon-btn bell-d" data-act="bell" aria-label="Notifikasi"><span class="ms">notifications</span><span class="dot-badge" id="bell-dot" hidden></span></button>
+      <div class="user-box"><b id="user-name"></b><small id="user-role"></small></div>
       <span class="badge" id="role-badge">Pemilik</span>
       <button class="avatar" id="avatar-btn" aria-label="Menu akun"></button>
     </header>
@@ -49,12 +56,14 @@
     </main>
 
     <nav class="bottom-nav" id="bottom-nav">
-      <div class="side-brand"><div class="logo"><span class="ms">account_balance_wallet</span></div><div><b>ArthaUMKM</b><small>Keuangan UMKM</small></div></div>
+      <div class="side-brand"><div class="logo"><span class="ms">account_balance_wallet</span></div><div><b>ArthaUMKM</b><small>Terminal Kasir &amp; Buku</small></div></div>
+      <div class="side-sync"><span class="ms sm">sync_alt</span> Tersinkron ke Sheets</div>
       <button data-nav="beranda"><span class="ms">dashboard</span><small>Beranda</small></button>
-      <button class="nav-spacer" data-nav="catat" aria-label="Catat transaksi"><span class="fab"><span class="ms">add</span></span><small>Catat</small></button>
-      <button data-nav="produk"><span class="ms">inventory_2</span><small>Produk</small></button>
-      <button data-nav="laporan"><span class="ms">description</span><small>Laporan</small></button>
+      <button class="nav-spacer" data-nav="catat" aria-label="Catat transaksi"><span class="fab"><span class="ms">add</span></span><span class="ms d-ico">edit_note</span><small><span class="l-m">Catat</span><span class="l-d">Catat Transaksi</span></small></button>
+      <button data-nav="produk"><span class="ms">inventory_2</span><small><span class="l-m">Produk</span><span class="l-d">Produk &amp; Stok</span></small></button>
+      <button data-nav="laporan"><span class="ms">description</span><small><span class="l-m">Laporan</span><span class="l-d">Laporan &amp; PDF</span></small></button>
       <button class="desk-only" data-nav="transaksi"><span class="ms">receipt_long</span><small>Semua Transaksi</small></button>
+      <div class="side-status"><div><small>Status Cloud</small><b id="side-status"><i></i> Terhubung</b></div><span class="ms">cloud_done</span></div>
     </nav>
   </div>
 

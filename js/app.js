@@ -5,7 +5,8 @@ const S = {
   user: null, view: 'beranda',
   dash: null, prod: null, report: {}, form: null, formAt: 0,
   periode: 'bulan_ini', prodFilter: 'semua', prodQ: '',
-  trxJenis: '', trxQ: '', sync: null
+  trxJenis: '', trxQ: '', sync: null,
+  dxQ: '', dxFilter: 'semua', dxRows: [], dxTotal: 0
 };
 const TITLES = { beranda: 'Beranda', catat: 'Catat Transaksi', produk: 'Produk dan Stok', laporan: 'Laporan Keuangan', transaksi: 'Semua Transaksi' };
 const KAT = {
@@ -25,7 +26,10 @@ function boot() {
   bindGlobal();
   if (API.token && API.user) {
     startApp(API.user);
-    API.post('me').then(r => { if (r && r.success === false && r.code !== 'AUTH' && r.message) toast(r.message, 'error'); });
+    API.post('me').then(r => {
+      if (r && r.success && r.data && r.data.toko) setStore(r.data.toko);
+      else if (r && r.success === false && r.code !== 'AUTH' && r.message) toast(r.message, 'error');
+    });
   } else showLogin();
 }
 
@@ -37,8 +41,15 @@ function showLogin() {
   closeSheet();
 }
 
+function setStore(name) {
+  localStorage.setItem('artha_toko', name);
+  $('#topbar-store').textContent = name;
+}
+
 function startApp(user) {
   S.user = user;
+  setStore(localStorage.getItem('artha_toko') || 'ArthaUMKM');
+  $('#user-name').textContent = user.nama; $('#user-role').textContent = user.peran;
   $('#screen-login').hidden = true; $('#shell').hidden = false;
   document.body.classList.toggle('staff', !isOwner());
   $('#role-badge').textContent = user.peran;
@@ -55,6 +66,7 @@ async function doLogin(e) {
   btn.disabled = false; btn.textContent = 'Masuk';
   if (!r.success) { toast(r.message || 'Gagal masuk.', 'error'); return; }
   localStorage.setItem('artha_email', email);
+  if (r.data.toko) localStorage.setItem('artha_toko', r.data.toko);
   $('#login-pin').value = '';
   API.setSession(r.data.token, r.data.user);
   startApp(r.data.user);
@@ -74,6 +86,7 @@ function go(view, opts) {
   ['beranda', 'catat', 'produk', 'laporan', 'transaksi'].forEach(v => $('#view-' + v).classList.toggle('active', v === view));
   $$('#bottom-nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === view));
   $('#topbar-sub').textContent = TITLES[view];
+  $('#topbar-owner').textContent = S.user.peran + ': ' + S.user.nama + ' • ' + TITLES[view];
   window.scrollTo(0, 0);
   ({ beranda: loadBeranda, catat: loadCatat, produk: loadProduk, laporan: loadLaporan, transaksi: loadTransaksi })[view](opts || {});
 }
@@ -110,7 +123,9 @@ const ACT = {
   'trx-filter': t => { S.trxJenis = t.dataset.j; loadTransaksi(); },
   'trx-del': t => deleteTrx(t.dataset.id),
   'trx-inv': t => makeInvoice(t.dataset.id),
-  back: () => go('beranda')
+  back: () => go('beranda'),
+  'dx-filter': t => { S.dxFilter = t.dataset.f; $$('#view-beranda [data-act="dx-filter"]').forEach(b => b.classList.toggle('on', b.dataset.f === S.dxFilter)); dxFetch(); },
+  'dx-restok': t => openStockSheet({ id: t.dataset.id, nama: t.dataset.nama, stok: Number(t.dataset.stok), satuan: t.dataset.sat })
 };
 
 function bindGlobal() {
@@ -129,6 +144,14 @@ function bindGlobal() {
     const r = await API.post('toggleCatalog', { id: p.id, tampil: el.checked });
     if (r.success) { p.tampil = el.checked; renderProdChips(); toast(el.checked ? 'Ditampilkan di katalog.' : 'Disembunyikan dari katalog.', 'success'); }
     else { el.checked = !el.checked; toast(r.message, 'error'); }
+  });
+  $('#view-beranda').addEventListener('input', e => {
+    if (e.target.id === 'dx-q') { S.dxQ = e.target.value; clearTimeout(_dxTimer); _dxTimer = setTimeout(dxFetch, 350); }
+  });
+  document.addEventListener('keydown', e => {
+    if (!S.user || $('#shell').hidden || (e.key !== 'F1' && e.key !== 'F2')) return;
+    e.preventDefault();
+    go('catat', { jenis: e.key === 'F1' ? 'Pemasukan' : 'Pengeluaran' });
   });
   $('#view-produk').addEventListener('input', e => {
     if (e.target.id === 'prod-q') { S.prodQ = e.target.value; renderProdList(); }
@@ -155,8 +178,12 @@ async function loadBeranda() {
   const el = $('#view-beranda');
   if (S.dash) renderBeranda(); else el.innerHTML = skeleton();
   const r = await API.post('getDashboard');
+  $('#side-status').parentElement.parentElement.classList.toggle('off', !r.success);
+  $('#side-status').lastChild.textContent = r.success ? ' Terhubung' : ' Terputus';
   if (!r.success) { if (!S.dash && S.view === 'beranda') el.innerHTML = errorBox(r.message, 'retry'); return; }
   S.dash = r.data; S.sync = new Date();
+  setStore(r.data.toko);
+  $('#bell-dot').hidden = !r.data.stokMenipis.length;
   if (S.view === 'beranda') renderBeranda();
 }
 
@@ -185,7 +212,7 @@ function renderBeranda() {
   const growth = d.growth == null ? '' : '<b>' + (d.growth >= 0 ? '+' : '') + String(d.growth).replace('.', ',') + '%</b> vs bulan lalu';
   const sync = S.sync ? 'Tersinkron ke Google Sheets' : 'Memuat...';
 
-  $('#view-beranda').innerHTML =
+  const mob =
     '<div class="sync-row"><div class="grow"><span class="dot"></span>' + ic('cloud_done', 'xs') + ' ' + sync + '</div><span class="muted">' + esc(fmtDate(d.hariIni)) + '</span></div>' +
     '<div class="greet"><div><h1>Selamat Datang, ' + esc(S.user.nama) + '</h1><p>' + ic('storefront', 'sm') + ' ' + esc(d.toko) + '</p></div>' +
     '<button class="icon-btn" data-act="bell" aria-label="Notifikasi">' + ic('notifications') + (low.length ? '<span class="dot-badge"></span>' : '') + '</button></div>' +
@@ -215,7 +242,142 @@ function renderBeranda() {
     }).join('') + '</div></div>' +
 
     '<div class="sec-head"><h2>Transaksi Terbaru</h2><button data-act="to-trx">Lihat Semua</button></div>' +
-    '<div class="card tx-list">' + (d.terbaru.length ? d.terbaru.map(t => txItem(t)).join('') : '<div class="empty">' + ic('receipt_long') + 'Belum ada transaksi.<br>Ketuk tombol + untuk mencatat.</div>') + '</div></div></div>';
+    '<div class="card tx-list">' + (d.terbaru.length ? d.terbaru.slice(0, 4).map(t => txItem(t)).join('') : '<div class="empty">' + ic('receipt_long') + 'Belum ada transaksi.<br>Ketuk tombol + untuk mencatat.</div>') + '</div></div></div>';
+  $('#view-beranda').innerHTML = '<div class="m-only">' + mob + '</div><div class="d-only">' + desktopBeranda(d) + '</div>';
+}
+
+// ---------- Beranda versi desktop ----------
+let _dxTimer, _dxSeq = 0;
+const jt2 = n => { n = Number(n) || 0; return n >= 1e6 ? 'Rp\u00a0' + (n / 1e6).toFixed(2).replace('.', ',') + 'jt' : rp(n); };
+const pc = n => String(n).replace('.', ',');
+function fmtBytes(b) {
+  if (b >= 1073741824) return (b / 1073741824).toFixed(1).replace('.', ',') + ' GB';
+  if (b >= 1048576) return Math.round(b / 1048576) + ' MB';
+  return Math.max(1, Math.round(b / 1024)) + ' KB';
+}
+function dayMonth(str) { const d = parseTs(str); return d.getDate() + ' ' + BLN[d.getMonth()]; }
+
+function dxTbody(rows) {
+  if (!rows.length) return '<tr><td colspan="5"><div class="empty">' + ic('receipt_long') + 'Tidak ada transaksi yang cocok.</div></td></tr>';
+  return rows.map(t => {
+    const inn = t.jenis === 'Pemasukan';
+    const title = inn ? (t.produk ? (t.jumlah > 1 ? t.jumlah + 'x ' : 'Penjualan ') + t.produk : t.kategori) : (t.keterangan || t.kategori);
+    const who = inn ? (t.pelanggan ? 'Pelanggan: ' + t.pelanggan : t.kategori) : (t.keterangan ? t.kategori : t.jenis);
+    const files = (t.bukti ? '<a class="dx-link" href="' + esc(t.bukti) + '" target="_blank" rel="noopener">' + ic('attach_file', 'xs') + ' Lihat Bukti</a>' : '') +
+      (t.invoiceNo ? '<br><a class="dx-link" href="' + esc(t.invoiceLink) + '" target="_blank" rel="noopener">' + ic('receipt_long', 'xs') + ' ' + esc(t.invoiceNo) + '</a>' : '');
+    return '<tr><td><div class="row" style="gap:.8rem"><div class="tx-ico ' + (inn ? 'in' : 'out') + '">' + ic(inn ? 'shopping_bag' : 'receipt_long') + '</div>' +
+      '<div style="min-width:0"><div class="tx-title" style="white-space:normal">' + esc(title) + '</div><div class="small muted">' + esc(relDay(t.tanggal)) + ' • ' + esc(who) + '</div></div></div></td>' +
+      '<td><span class="tag">' + esc(t.kategori) + '</span></td>' +
+      '<td><span class="dx-dot ' + (inn ? 'in' : 'out') + '"></span>' + esc(t.metode || '-') + '</td>' +
+      '<td>' + (files || '<span class="muted small"><i>Tanpa lampiran</i></span>') + '</td>' +
+      '<td class="r"><b class="' + (inn ? 'up' : 'down') + '">' + rpSigned(t.nominal, t.jenis) + '</b></td></tr>';
+  }).join('');
+}
+function renderDxTable() {
+  const tb = $('#dx-tbody'); if (!tb) return;
+  tb.innerHTML = dxTbody(S.dxRows);
+  $('#dx-count').textContent = 'Menampilkan ' + S.dxRows.length + ' dari ' + S.dxTotal + ' baris data';
+}
+async function dxFetch() {
+  const my = ++_dxSeq, q = S.dxQ.trim(), f = S.dxFilter;
+  if (!q && f === 'semua') { S.dxRows = S.dash.terbaru; S.dxTotal = S.dash.totalTrx; return renderDxTable(); }
+  const r = await API.post('getTransactions', { q, jenis: f === 'Pemasukan' || f === 'Pengeluaran' ? f : '' });
+  if (my !== _dxSeq) return;
+  if (!r.success) return toast(r.message, 'error');
+  let items = r.data.items, total = r.data.total;
+  if (f === 'bukti') { items = items.filter(t => t.bukti); total = items.length; }
+  S.dxRows = items.slice(0, 8); S.dxTotal = total; renderDxTable();
+}
+
+function desktopBeranda(d) {
+  if (!S.dxQ && S.dxFilter === 'semua') { S.dxRows = d.terbaru; S.dxTotal = d.totalTrx; }
+  const w = d.minggu, tgt = d.target || 0, pm = d.porsiMetode, rk = d.rincianKeluar;
+  const peakV = Math.max.apply(null, w.values), peakI = peakV > 0 ? w.values.indexOf(peakV) : -1;
+  const scale = Math.max(peakV, tgt, 1), H = 190;
+  const now = S.sync || new Date();
+  const jam = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const low = d.stokMenipis, c = d.cloud || {};
+  const growth = d.growth == null ? '' : '<span class="up" style="font-weight:700">' + ic(d.growth >= 0 ? 'trending_up' : 'trending_down', 'xs') + ' ' + (d.growth >= 0 ? '+' : '') + pc(d.growth) + '%</span> dibanding ' + esc(d.bulanLalu);
+  const chip = (f, label) => '<button class="f ' + (S.dxFilter === f ? 'on' : '') + '" data-act="dx-filter" data-f="' + f + '">' + label + '</button>';
+  const usedPct = c.used != null && c.limit > 0 ? Math.min(100, c.used / c.limit * 100) : 0;
+
+  return '' +
+    '<div class="dx-card dx-welcome"><div><div class="row" style="flex-wrap:wrap;gap:.7rem"><h1>Selamat Datang, ' + esc(S.user.nama) + '</h1><span class="dx-chip">' + esc(d.toko) + ' (' + esc(S.user.peran) + ')</span></div>' +
+    '<span class="dx-synctag">' + ic('sync', 'xs') + ' Tersinkron ke Google Sheets: ' + esc(fmtDate(d.hariIni)) + ' • ' + jam + ' WIB</span>' +
+    '<p>Pantauan arus kas, penjualan, dan inventaris usaha Anda secara real-time langsung dari Google Sheets.</p></div>' +
+    '<div class="dx-actions"><button class="btn btn-primary" data-act="quick" data-jenis="Pemasukan">' + ic('add_circle', 'sm') + ' + Pemasukan <kbd>F1</kbd></button>' +
+    '<button class="btn btn-expense" data-act="quick" data-jenis="Pengeluaran">' + ic('do_not_disturb_on', 'sm') + ' - Pengeluaran <kbd>F2</kbd></button>' +
+    '<button class="btn btn-soft" data-act="to-laporan">' + ic('picture_as_pdf', 'sm') + ' Cetak PDF</button>' +
+    '<a class="btn btn-soft" href="' + esc(d.sheetUrl) + '" target="_blank" rel="noopener">' + ic('table_chart', 'sm') + ' Buka Google Sheets</a></div></div>' +
+
+    '<div class="dx-kpis">' +
+    '<div class="dx-kpi main"><div class="k-body"><div class="k-top"><span>Saldo Kas Bersih (' + esc(d.bulan.slice(0, 3)) + ')</span><span class="pill ' + (d.saldo >= 0 ? 'mint' : 'red') + '">Status: ' + (d.saldo >= 0 ? 'Sehat' : 'Defisit') + '</span></div>' +
+    '<div class="k-val g">' + rp(d.saldo) + '</div><div class="k-note">' + growth + '</div></div>' +
+    '<div class="k-foot"><span>' + d.countTotal + ' transaksi bulan ini</span><span class="up">● Aktif Sinkron</span></div></div>' +
+
+    '<div class="dx-kpi"><div class="k-body"><div class="k-top"><span>Total Pemasukan</span><span class="k-ico g">' + ic('arrow_downward', 'sm') + '</span></div>' +
+    '<div class="k-val">' + rp(d.masuk) + '</div><div class="k-note"><b>' + d.countMasuk + ' Pesanan</b> • Rerata ' + rp(d.rataTrx) + '/trx</div></div>' +
+    '<div class="k-foot"><span>Porsi QRIS / Tunai</span><b>' + pm.qris + '% / ' + pm.tunai + '%</b></div></div>' +
+
+    '<div class="dx-kpi"><div class="k-body"><div class="k-top"><span>Total Pengeluaran</span><span class="k-ico r">' + ic('arrow_upward', 'sm') + '</span></div>' +
+    '<div class="k-val r">' + rp(d.keluar) + '</div><div class="k-note">Bahan: <b>' + jt2(rk.bahan) + '</b> • Ops: <b>' + jt2(rk.ops) + '</b></div></div>' +
+    '<div class="k-foot"><span>Rasio Biaya Operasional</span><b>' + pc(d.rasioBiaya) + '% Omzet</b></div></div>' +
+
+    '<div class="dx-kpi"><div class="k-body"><div class="k-top"><span>Estimasi Laba &amp; Stok</span><span class="pill" style="background:var(--sec-c);color:var(--on-sec-c)">Margin ' + pc(d.margin) + '%</span></div>' +
+    '<div class="k-val g">' + rp(d.saldo) + '</div><div class="k-note">Nilai Aset Stok: <b>' + rp(d.nilaiStok) + '</b></div></div>' +
+    '<div class="k-foot"><span>Katalog Gudang</span><b>' + d.jumlahSku + ' SKU Terdata</b></div></div></div>' +
+
+    '<div class="dx-main"><div class="dx-col">' +
+    // ---- grafik ----
+    '<div class="dx-card"><div class="dx-head"><div><h2>' + ic('bar_chart') + ' Tren Pemasukan &amp; Arus Kas Mingguan</h2>' +
+    '<div class="dx-sub">Perbandingan penjualan harian pekan ini (Senin ' + esc(dayMonth(w.tanggal[0])) + ' – Minggu ' + esc(fmtDate(w.tanggal[6])) + ')</div></div>' +
+    '<div class="dx-pills"><span class="pill mint" style="font-size:12px;padding:.35rem .8rem">Rerata: ' + rp(w.rataHarian) + ' / hari</span>' +
+    (tgt > 0 ? '<span class="pill" style="font-size:12px;padding:.35rem .8rem;background:var(--sec-c);color:var(--on-sec-c)">Target: ' + Math.round(w.rataHarian / tgt * 100) + '%</span>' : '') + '</div></div>' +
+    '<div class="dx-plot-wrap"><div class="dx-plot">' +
+    w.values.map((v, i) => {
+      const h = v > 0 ? Math.max(6, v / scale * H) : 4, peak = i === peakI, ratio = peakV ? v / peakV : 0;
+      const bg = peak ? 'var(--primary)' : 'rgba(0,105,72,' + (0.22 + 0.6 * ratio).toFixed(2) + ')';
+      return '<div class="area">' + (peak ? '<span class="dx-peak" style="bottom:' + (h + 6) + 'px">Puncak</span>' : '') +
+        '<div class="b" title="' + esc(rp(v)) + '" style="height:' + h + 'px;background:' + bg + (i > w.hariIdx ? ';opacity:.35' : '') + '"></div></div>';
+    }).join('') + (tgt > 0 ? '<div class="dx-target" style="bottom:' + (tgt / scale * H) + 'px"></div>' : '') + '</div>' +
+    '<div class="dx-labels">' + w.labels.map((l, i) => '<div class="' + (i > w.hariIdx ? 'fut' : '') + '"><b>' + l + '</b><small>' + w.tanggal[i].slice(8, 10) + '/' + w.tanggal[i].slice(5, 7) + '</small></div>').join('') + '</div></div>' +
+    '<div class="dx-legend"><span><i style="background:var(--primary)"></i>Pemasukan Toko</span>' +
+    (tgt > 0 ? '<span><i style="background:#7c8bb5"></i>Batas Target Minimum (' + jt2(tgt).replace('Rp\u00a0', 'Rp ') + '/hari)</span>' : '') +
+    '<span class="rt">Data realtime via Apps Script</span></div></div>' +
+    // ---- tabel ----
+    '<div class="dx-card"><div class="dx-head"><div><h2>' + ic('receipt_long') + ' Buku Kas &amp; Transaksi Terbaru <span class="pill mint" style="font-size:11px">● Live Sheets Sync</span></h2>' +
+    '<div class="dx-sub">Daftar mutasi uang masuk dan pengeluaran operasional ' + esc(d.toko) + '</div></div>' +
+    '<button class="dx-linkbtn" data-act="to-trx">Lihat Semua Transaksi ' + ic('chevron_right', 'sm') + '</button></div>' +
+    '<div class="dx-toolbar"><div class="sbox">' + ic('search', 'sm') + '<input id="dx-q" placeholder="Cari nota, pelanggan, kategori..." value="' + esc(S.dxQ) + '"></div>' +
+    chip('semua', 'Semua') + chip('Pemasukan', 'Pemasukan (+)') + chip('Pengeluaran', 'Pengeluaran (-)') + chip('bukti', 'Ada Bukti Foto') + '</div>' +
+    '<div class="dx-tablewrap"><table class="dx-table"><thead><tr><th>Transaksi &amp; Waktu</th><th>Kategori</th><th>Metode Pembayaran</th><th>Bukti Google Drive</th><th class="r">Nominal</th></tr></thead>' +
+    '<tbody id="dx-tbody">' + dxTbody(S.dxRows) + '</tbody></table></div>' +
+    '<div class="dx-foot"><span style="display:flex;gap:.5rem;align-items:center">' + ic('verified_user', 'sm') + ' Setiap transaksi memiliki ID unik (TRX-…) dan dijaga LockService agar tidak ada duplikasi baris di Google Sheets.</span><b id="dx-count" style="white-space:nowrap">Menampilkan ' + S.dxRows.length + ' dari ' + S.dxTotal + ' baris data</b></div></div>' +
+    '</div>' +
+
+    // ---- kolom kanan ----
+    '<div class="dx-col">' +
+    '<div class="dx-card"><div class="dx-head"><h2><span class="down" style="display:flex">' + ic('warning') + '</span> Peringatan Restok Gudang</h2>' +
+    (low.length ? '<span class="pill red" style="white-space:nowrap">' + low.length + ' Perlu Restok</span>' : '<span class="pill mint">Aman</span>') + '</div>' +
+    '<div class="dx-sub">' + (low.length ? 'Produk berikut berada di bawah batas stok minimum. Segera lakukan restok.' : 'Semua stok produk masih di atas batas minimum.') + '</div>' +
+    '<div class="stack" style="margin-top:.8rem">' + low.slice(0, 4).map(p => {
+      const habis = p.stok <= 0;
+      return '<div class="dx-restok"><div style="min-width:0"><b>' + esc(p.nama) + '</b><small>' + (habis ? '0 ' + esc(p.satuan) + ' • Stok Kosong' : 'Sisa: ' + p.stok + ' ' + esc(p.satuan) + ' • Min: ' + p.min) + '</small></div>' +
+        '<button class="btn ' + (habis ? 'btn-danger-solid' : 'btn-primary') + '" data-act="dx-restok" data-id="' + esc(p.id) + '" data-nama="' + esc(p.nama) + '" data-stok="' + p.stok + '" data-sat="' + esc(p.satuan) + '">' + (habis ? 'Restok Sekarang' : 'Restok Cepat') + '</button></div>';
+    }).join('') + '</div>' + (low.length > 4 ? '<button class="dx-linkbtn" style="margin-top:.7rem" data-act="to-produk" data-filter="menipis">Lihat ' + (low.length - 4) + ' lainnya ' + ic('chevron_right', 'sm') + '</button>' : '') + '</div>' +
+
+    '<div class="dx-card"><div class="dx-head"><h2><span style="display:flex;color:var(--primary)">' + ic('star') + '</span> Produk Terlaris Bulan Ini</h2><span class="small muted" style="font-weight:600">Top 3 Kontributor</span></div>' +
+    (d.top.length ? d.top.map((t, i) => '<div class="dx-bar-row"><div class="t"><span class="no">' + (i + 1) + '</span><b>' + esc(t.nama) + '</b><b style="flex:none">' + rp(t.omzet) + '</b></div>' +
+      '<div class="dx-prog"><i style="width:' + Math.min(100, t.porsi) + '%"></i></div><div class="small muted" style="text-align:right;margin-top:.2rem">' + pc(t.porsi) + '% dari total omzet</div></div>').join('')
+      : '<div class="dx-sub" style="margin-top:.8rem">Belum ada penjualan produk bulan ini.</div>') + '</div>' +
+
+    '<div class="dx-card"><div class="dx-head"><h2>' + ic('cloud_done') + ' Status Cloud Workspace</h2><span class="pill mint">Sehat</span></div>' +
+    '<div class="dx-cloud"><div class="h"><span>' + ic('add_to_drive', 'sm') + ' Google Drive Storage</span><span class="muted small">' + (c.used != null ? fmtBytes(c.used) + (c.limit > 0 ? ' / ' + fmtBytes(c.limit) : '') : 'tidak tersedia') + '</span></div>' +
+    (usedPct ? '<div class="dx-prog"><i style="width:' + Math.max(2, usedPct) + '%"></i></div>' : '') +
+    '<div class="d">Folder: <code>/ArthaUMKM/Bukti_Pembayaran/</code></div></div>' +
+    '<div class="dx-cloud"><div class="h"><span>' + ic('mail', 'sm') + ' Otomasi Gmail PDF Bulanan</span><span class="pill ' + (c.trigger ? 'mint' : 'warn') + '">' + (c.trigger ? 'Aktif' : 'Nonaktif') + '</span></div><div class="d">Terjadwal kirim otomatis tgl 1 tiap bulan</div></div>' +
+    '<div class="dx-cloud"><div class="h"><span>' + ic('lock', 'sm') + ' Sheets LockService Antikonflik</span><span class="pill mint">Aman</span></div><div class="d">Mencegah benturan data simultan (0 tabrakan)</div></div></div>' +
+    '</div></div>';
 }
 
 // ============================================
@@ -489,7 +651,9 @@ function openStockSheet(p) {
         const r = await API.post('adjustStock', { id: p.id, delta: n });
         b.disabled = false;
         if (!r.success) return toast(r.message, 'error');
-        p.stok = r.data.stok; S.dash = null; S.formAt = 0; closeSheet(); renderProduk(); toast('Stok diperbarui.', 'success');
+        p.stok = r.data.stok; S.dash = null; S.report = {}; S.formAt = 0; closeSheet(); toast('Stok diperbarui.', 'success');
+        if (S.view === 'produk' && S.prod) { const it = S.prod.items.find(x => x.id === p.id); if (it) it.stok = r.data.stok; renderProduk(); }
+        else if (S.view === 'beranda') loadBeranda();
       };
     });
 }
