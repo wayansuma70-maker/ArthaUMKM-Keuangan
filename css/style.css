@@ -501,3 +501,9 @@ body.staff .view { padding-bottom: 2rem; }
   .dx-kpis { grid-template-columns: repeat(4, 1fr); }
   .dx-main { grid-template-columns: minmax(0, 1fr) 360px; }
 }
+
+/* Status koneksi di halaman login */
+.conn { margin: 1rem auto 0; max-width: 360px; text-align: center; font-size: 12px; line-height: 18px; font-weight: 600; color: var(--slate-500); }
+.conn.ok { color: var(--accent); }
+.conn.bad { color: var(--tertiary); background: var(--tert-tint); border-radius: var(--r-md); padding: .6rem .8rem; }
+.conn-retry { color: var(--primary); font-weight: 800; text-decoration: underline; margin-left: .3rem; }

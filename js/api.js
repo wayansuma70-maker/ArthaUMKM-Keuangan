@@ -20,36 +20,47 @@ const API = {
     localStorage.removeItem('artha_token'); localStorage.removeItem('artha_user');
   },
 
-  async _fetch(url, opts) {
+  async _fetch(url, opts, ms) {
     if (!this.configured()) {
-      return { success: false, message: 'URL backend belum diisi. Edit js/config.js lalu push ulang.' };
+      return { success: false, kind: 'config', message: 'URL backend belum diisi. Edit js/config.js lalu push ulang.' };
     }
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 90000);
+    const timer = setTimeout(() => ctrl.abort(), ms || 45000);
     try {
       const res = await fetch(url, Object.assign({ signal: ctrl.signal }, opts));
       const text = await res.text();
       try { return JSON.parse(text); }
-      catch (e) { return { success: false, message: 'Respons server tidak valid. Pastikan Web App di-deploy: Execute as Me, akses Anyone.' }; }
+      catch (e) {
+        const t = text.slice(0, 3000).toLowerCase();
+        let msg = 'Respons server tidak valid. Pastikan Web App di-deploy: Execute as Me, akses Anyone.';
+        if (res.status === 404) msg = 'Alamat backend tidak ditemukan (404). Periksa GAS_URL di js/config.js.';
+        else if (res.status === 401 || res.status === 403 || /accounts\.google|sign in|masuk|authoriz|otorisasi/.test(t))
+          msg = 'Backend meminta login/otorisasi Google. Deploy ulang Web App: Execute as Me, Who has access: Anyone, lalu izinkan akses.';
+        else if (/script function not found|tidak ditemukan/.test(t))
+          msg = 'Fungsi doGet/doPost tidak ditemukan. Pastikan Kode.gs tersimpan penuh lalu deploy versi baru.';
+        return { success: false, kind: 'server', message: msg };
+      }
     } catch (err) {
-      const msg = err.name === 'AbortError' ? 'Server terlalu lama merespons. Coba lagi.' : 'Tidak dapat terhubung ke server. Periksa koneksi internet.';
-      return { success: false, message: msg };
+      const aborted = err.name === 'AbortError';
+      return { success: false, kind: aborted ? 'timeout' : 'network',
+        message: aborted ? 'Server terlalu lama merespons. Panggilan pertama setelah lama tidak dipakai bisa lambat. Coba lagi.'
+                         : 'Tidak dapat terhubung ke backend. Periksa internet, URL /exec di js/config.js, dan pengaturan akses Web App (Anyone).' };
     } finally { clearTimeout(timer); }
   },
 
   // GET publik (tanpa login)
-  get(action, params) {
+  get(action, params, ms) {
     const q = new URLSearchParams(Object.assign({ action }, params || {})).toString();
-    return this._fetch(window.APP_CONFIG.GAS_URL + '?' + q);
+    return this._fetch(window.APP_CONFIG.GAS_URL + '?' + q, undefined, ms);
   },
 
   // POST (token di body). Wajib text/plain agar tidak memicu CORS preflight.
-  async post(action, data) {
+  async post(action, data, ms) {
     const r = await this._fetch(window.APP_CONFIG.GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: action, token: this.token, data: data || {} })
-    });
+    }, ms);
     if (r && r.code === 'AUTH') {
       this.clear();
       window.dispatchEvent(new CustomEvent('auth-expired'));

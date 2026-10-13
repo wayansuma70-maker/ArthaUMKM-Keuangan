@@ -39,6 +39,18 @@ function showLogin() {
   document.body.classList.remove('staff');
   const em = localStorage.getItem('artha_email'); if (em) $('#login-email').value = em;
   closeSheet();
+  checkConn();
+}
+
+// Cek koneksi ke backend (ditampilkan di bawah form login)
+async function checkConn() {
+  const el = $('#conn-status'); if (!el) return;
+  const set = (cls, html) => { el.className = 'conn ' + cls; el.innerHTML = html; };
+  set('', ic('sync', 'xs') + ' Memeriksa koneksi server...');
+  const r = await API.get('ping', {}, 20000);
+  if (r.success && r.data && r.data.ready) set('ok', ic('check_circle', 'xs') + ' Server terhubung — silakan masuk.');
+  else if (r.success) set('bad', ic('error', 'xs') + ' Backend aktif tetapi setup belum dijalankan. Jalankan setupAppEnvironment() di Apps Script.');
+  else set('bad', ic('error', 'xs') + ' ' + esc(r.message) + ' <button type="button" class="conn-retry" data-act="conn-retry">Cek ulang</button>');
 }
 
 function setStore(name) {
@@ -62,9 +74,15 @@ async function doLogin(e) {
   e.preventDefault();
   const btn = $('#login-btn'), email = $('#login-email').value.trim(), pin = $('#login-pin').value;
   btn.disabled = true; btn.textContent = 'Memeriksa...';
-  const r = await API.post('login', { email, pin });
+  const slow = setTimeout(() => { btn.textContent = 'Menghubungi server... (bisa 5–10 detik)'; }, 5000);
+  const r = await API.post('login', { email, pin }, 30000);
+  clearTimeout(slow);
   btn.disabled = false; btn.textContent = 'Masuk';
-  if (!r.success) { toast(r.message || 'Gagal masuk.', 'error'); return; }
+  if (!r.success) {
+    toast(r.message || 'Gagal masuk.', 'error');
+    if (r.kind) checkConn();
+    return;
+  }
   localStorage.setItem('artha_email', email);
   if (r.data.toko) localStorage.setItem('artha_toko', r.data.toko);
   $('#login-pin').value = '';
@@ -124,6 +142,7 @@ const ACT = {
   'trx-del': t => deleteTrx(t.dataset.id),
   'trx-inv': t => makeInvoice(t.dataset.id),
   back: () => go('beranda'),
+  'conn-retry': () => checkConn(),
   'dx-filter': t => { S.dxFilter = t.dataset.f; $$('#view-beranda [data-act="dx-filter"]').forEach(b => b.classList.toggle('on', b.dataset.f === S.dxFilter)); dxFetch(); },
   'dx-restok': t => openStockSheet({ id: t.dataset.id, nama: t.dataset.nama, stok: Number(t.dataset.stok), satuan: t.dataset.sat })
 };
